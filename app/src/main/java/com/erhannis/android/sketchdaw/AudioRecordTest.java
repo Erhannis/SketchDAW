@@ -23,15 +23,15 @@ public class AudioRecordTest implements CSProcess {
   private static final int CHUNK_SIZE = 4410;
 
   private final AltingChannelInputInt shutdownInput;
-  private final AltingChannelInputInt playInput;
+  private final AltingChannelInputInt backSecondsInput;
 
   private final AudioRecord mAr;
 
-  protected final AudioData mAudio = new AudioData();
+  protected final AudioData mAudio = new RawAudioData();
 
-  public AudioRecordTest(AltingChannelInputInt shutdownInput, AltingChannelInputInt playInput) throws Exception {
+  public AudioRecordTest(AltingChannelInputInt shutdownInput, AltingChannelInputInt backSecondsInput) throws Exception {
     this.shutdownInput = shutdownInput;
-    this.playInput = playInput;
+    this.backSecondsInput = backSecondsInput;
     mAr = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2);
     if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
       throw new Exception("Failed to initialize AudioRecord!");
@@ -55,17 +55,23 @@ public class AudioRecordTest implements CSProcess {
       }
       Log.d(TAG, "Read: " + readCount);
       mAudio.add(new AudioChunk(tempChunk.clone()));
-      if (playInput.pending()) {
-        playInput.read();
-        AudioTrack track = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2, AudioTrack.MODE_STREAM);
-        if (track.getState() != AudioTrack.STATE_INITIALIZED) {
-          throw new RuntimeException("Failed to initialize AudioData!");
+      //TODO seekInput
+      if (backSecondsInput.pending()) {
+        int backSeconds = backSecondsInput.read();
+        int backChunks = (backSeconds * SAMPLE_RATE) / CHUNK_SIZE;
+        //TODO Calc layers, not just the one
+        if (tracks.size() < 1) {
+          AudioTrack track = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2, AudioTrack.MODE_STREAM);
+          if (track.getState() != AudioTrack.STATE_INITIALIZED) {
+            throw new RuntimeException("Failed to initialize AudioData!");
+          }
+          tracks.add(track);
+          positions.put(track, mAudio.size());
+          track.play();
         }
-        tracks.add(track);
-        int writeCount = track.write(mAudio.get(0).data, 0, CHUNK_SIZE);
-        Log.d(TAG, "Initial write: " + writeCount);
-        positions.put(track, 1);
-        track.play();
+        AudioTrack track = tracks.get(0);
+        positions.put(track, positions.get(track) - backChunks);
+        track.flush(); //TODO Doesn't work?
       }
       for (AudioTrack track : tracks) {
         int writeCount = track.write(mAudio.get(positions.get(track)).data, 0, CHUNK_SIZE);

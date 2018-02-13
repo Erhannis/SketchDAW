@@ -18,19 +18,27 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <Button
-            android:id="@+id/btnStart"
+            android:id="@+id/btnBack30s"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Start"/>
+            android:text="&lt;&lt;30s"/>
 
         <Button
-            android:id="@+id/btnPlay"
+            android:id="@+id/btnBack5s"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Play"/>
+            android:text="&lt;&lt;5s"/>
 
+        <Button
+            android:id="@+id/btnForwardAll"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="&gt;&gt;|"/>
+
+        <!-- TODO Remove or move this -->
         <Button
             android:id="@+id/btnShutdown"
             android:layout_width="wrap_content"
@@ -38,11 +46,6 @@
             android:layout_weight="1"
             android:text="Shutdown"/>
 
-        <Button
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Button"/>
     </LinearLayout>
 
 </android.support.constraint.ConstraintLayout>

@@ -18,9 +18,28 @@ import butterknife.BindView;
 import butterknife.ButterKnife;
 
 public class MainActivity extends AppCompatActivity {
-  @BindView(R.id.btnStart) Button btnStart;
-  @BindView(R.id.btnPlay) Button btnPlay;
+  //@BindView(R.id.btnStart) Button btnStart;
+  //@BindView(R.id.btnPlay) Button btnPlay;
+  @BindView(R.id.btnBack30s) Button btnBack30s;
+  @BindView(R.id.btnBack5s) Button btnBack5s;
+  @BindView(R.id.btnForwardAll) Button btnForwardAll;
   @BindView(R.id.btnShutdown) Button btnShutdown;
+
+  protected static final SharedChannelOutputInt backSecondsOut;
+  protected static final SharedChannelOutputInt shutdownOut;
+  protected static final AudioRecordTest audioRecordTest;
+  static {
+    Any2OneChannelInt backSecondsChannel = Channel.any2oneInt(new InfiniteBufferInt());
+    backSecondsOut = backSecondsChannel.out();
+    Any2OneChannelInt shutdownChannel = Channel.any2oneInt(new InfiniteBufferInt());
+    shutdownOut = shutdownChannel.out();
+    try {
+      audioRecordTest = new AudioRecordTest(shutdownChannel.in(), backSecondsChannel.in());
+      new ProcessManager(audioRecordTest).start();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   @Override
   protected void onCreate(Bundle savedInstanceState) {
@@ -30,23 +49,36 @@ public class MainActivity extends AppCompatActivity {
 
     checkPermissions();
 
-    Any2OneChannelInt playChannel = Channel.any2oneInt(new InfiniteBufferInt());
-    final SharedChannelOutputInt playOut = playChannel.out();
-    Any2OneChannelInt shutdownChannel = Channel.any2oneInt(new InfiniteBufferInt());
-    final SharedChannelOutputInt shutdownOut = shutdownChannel.out();
-
     try {
-      final AudioRecordTest audioRecordTest = new AudioRecordTest(shutdownChannel.in(), playChannel.in());
-      btnStart.setOnClickListener(new View.OnClickListener() {
+//      btnStart.setOnClickListener(new View.OnClickListener() {
+//        @Override
+//        public void onClick(View view) {
+//          new ProcessManager(audioRecordTest).start();
+//        }
+//      });
+//      btnPlay.setOnClickListener(new View.OnClickListener() {
+//        @Override
+//        public void onClick(View view) {
+//          playOut.write(0);
+//        }
+//      });
+      btnBack30s.setOnClickListener(new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-          new ProcessManager(audioRecordTest).start();
+          backSecondsOut.write(30);
         }
       });
-      btnPlay.setOnClickListener(new View.OnClickListener() {
+      btnBack5s.setOnClickListener(new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-          playOut.write(0);
+          backSecondsOut.write(5);
+        }
+      });
+      btnForwardAll.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+          //TODO Fix
+          backSecondsOut.write(-5);
         }
       });
       btnShutdown.setOnClickListener(new View.OnClickListener() {

@@ -1,0 +1,11 @@
+Autosave
+Compress audio
+Export
+  Option: Vol-down all to avoid clipping
+  Option: as audacity project? (could yield large data duplication)
+Move/remove "shutdown" button
+Add start button
+Add waveform?
+Add times
+Figure out buffer lag
+  Account for it for IntervalReferences!
