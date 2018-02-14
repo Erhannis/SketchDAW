@@ -25,17 +25,17 @@ public class MainActivity extends AppCompatActivity {
   @BindView(R.id.btnForwardAll) Button btnForwardAll;
   @BindView(R.id.btnShutdown) Button btnShutdown;
 
-  protected static final SharedChannelOutputInt backSecondsOut;
+  protected static final SharedChannelOutputInt seekSecondsOut;
   protected static final SharedChannelOutputInt shutdownOut;
-  protected static final AudioRecordTest audioRecordTest;
+  protected static final SketchDAWProcess sketchDAWProcess;
   static {
-    Any2OneChannelInt backSecondsChannel = Channel.any2oneInt(new InfiniteBufferInt());
-    backSecondsOut = backSecondsChannel.out();
+    Any2OneChannelInt seekSecondsChannel = Channel.any2oneInt(new InfiniteBufferInt());
+    seekSecondsOut = seekSecondsChannel.out();
     Any2OneChannelInt shutdownChannel = Channel.any2oneInt(new InfiniteBufferInt());
     shutdownOut = shutdownChannel.out();
     try {
-      audioRecordTest = new AudioRecordTest(shutdownChannel.in(), backSecondsChannel.in());
-      new ProcessManager(audioRecordTest).start();
+      sketchDAWProcess = new SketchDAWProcess(shutdownChannel.in(), seekSecondsChannel.in());
+      new ProcessManager(sketchDAWProcess).start();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -53,7 +53,7 @@ public class MainActivity extends AppCompatActivity {
 //      btnStart.setOnClickListener(new View.OnClickListener() {
 //        @Override
 //        public void onClick(View view) {
-//          new ProcessManager(audioRecordTest).start();
+//          new ProcessManager(sketchDAWProcess).start();
 //        }
 //      });
 //      btnPlay.setOnClickListener(new View.OnClickListener() {
@@ -65,20 +65,20 @@ public class MainActivity extends AppCompatActivity {
       btnBack30s.setOnClickListener(new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-          backSecondsOut.write(30);
+          seekSecondsOut.write(-30);
         }
       });
       btnBack5s.setOnClickListener(new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-          backSecondsOut.write(5);
+          seekSecondsOut.write(-5);
         }
       });
       btnForwardAll.setOnClickListener(new View.OnClickListener() {
         @Override
         public void onClick(View view) {
           //TODO Fix
-          backSecondsOut.write(-5);
+          seekSecondsOut.write(Integer.MAX_VALUE);
         }
       });
       btnShutdown.setOnClickListener(new View.OnClickListener() {

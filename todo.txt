@@ -1,4 +1,4 @@
-Autosave
+Add save
 Compress audio
 Export
   Option: Vol-down all to avoid clipping
@@ -9,3 +9,11 @@ Add waveform?
 Add times
 Figure out buffer lag
   Account for it for IntervalReferences!
+Options
+  Continue recording when minimized
+    (Could eat all memory)
+  Compression type
+    Lossy/lossless
+  Autosave
+Add "add tag"
+  Auto speech recognition?  (option?)
