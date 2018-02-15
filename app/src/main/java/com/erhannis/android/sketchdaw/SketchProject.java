@@ -96,9 +96,11 @@ public class SketchProject {
     }
     // Check for upcoming new playbacks on the far end
     ref = getNextActive(nearPos);
-    int change = ref.destStart - nearPos;
-    if (change < soonestChange) {
-      soonestChange = change;
+    if (ref != null) {
+      int change = ref.destStart - nearPos;
+      if (change < soonestChange) {
+        soonestChange = change;
+      }
     }
     // Tack on soonestChange
     if (soonestChange < Integer.MAX_VALUE) {

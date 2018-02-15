@@ -200,7 +200,6 @@ public class SketchDAWProcess implements CSProcess {
                 } else {
                   mPositions.put(track, newPos);
                   track.flush(); //TODO Doesn't work?
-                  updateRecursivePlayback();
                 }
               }
             } else {
@@ -223,13 +222,13 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
               int newPos = mPositions.get(track) + seekChunks;
               mPositions.put(track, newPos);
               track.flush(); //TODO Doesn't work?
-              updateRecursivePlayback();
             }
             // If we've ended up playing somewhere new, now, make a new ReferenceInterval for it
             if (mPlaying) {
               //TODO Does it matter that we're between reading (+1) and writing (=0)?
-              IntervalReference ref = new IntervalReference(mPositions.get(mTracks.get(0)), mProject.mic.size(), Integer.MAX_VALUE); //TODO Off-by-one errors!!!
+              IntervalReference ref = new IntervalReference(mPositions.get(mTracks.get(0)), mProject.mic.size() - 1, IntervalReference.INFINITY); //TODO Off-by-one errors!!!
               mProject.playbacks.add(ref);
+              updateRecursivePlayback();
             }
           }
         }
@@ -285,7 +284,7 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
   protected void capIntervalReference() {
     if (mProject.playbacks.size() > 0) {
       IntervalReference ref = mProject.playbacks.get(mProject.playbacks.size() - 1);
-      if (ref.duration == Integer.MAX_VALUE) {
+      if (ref.duration == IntervalReference.INFINITY) {
         // This is the active IntervalReference
         ref.duration = mProject.mic.size() - ref.destStart;
       }
@@ -303,6 +302,9 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
       return;
     }
     LinkedList<Integer> newPositions = mProject.getRecursivePlaybackPositions(mPositions.get(mTracks.get(0)));
+    if (newPositions.size() == 0) {
+      System.out.println("debugging");
+    }
     mSafeChunksLeft = newPositions.removeLast();
     newPositions.addFirst(mPositions.get(mTracks.get(0)));
     //TODO Maybe just return a HashSet, to begin with?

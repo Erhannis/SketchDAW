@@ -9,6 +9,8 @@ package com.erhannis.android.sketchdaw;
  *
  */
 public class IntervalReference {
+  public static final int INFINITY = Integer.MAX_VALUE / 2; // About 3 years worth of audio, at current settings
+
   //TODO Could include reference to source and/or dest audio....
   /**
    * Where to read from
