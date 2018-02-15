@@ -11,4 +11,5 @@ import java.util.ArrayList;
 public class SketchProject {
   public AudioData mic;
   public ArrayList<IntervalReference> playbacks;
+  public ArrayList<Tag> tags;
 }
