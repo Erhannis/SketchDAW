@@ -7,44 +7,132 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.util.Log;
 
+import org.jcsp.lang.AltingChannelInput;
 import org.jcsp.lang.AltingChannelInputInt;
 import org.jcsp.lang.CSProcess;
+import org.jcsp.lang.One2OneCallChannel;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
+ * The core of SketchDAW functionality.  Tracks one project at a time, recording audio and playback,
+ * and emitting sound, etc.
+ *
  * Created by erhannis on 2/12/18.
  */
 
 public class SketchDAWProcess implements CSProcess {
-  private static final String TAG = "SketchDAWProcess";
-  private static final int SAMPLE_RATE = 44100;
-  private static final int CHUNK_SIZE = 4410;
+  protected static final String TAG = "SketchDAWProcess";
+  protected static final int SAMPLE_RATE = 44100;
+  protected static final int CHUNK_SIZE = 4410;
 
-  private final AltingChannelInputInt shutdownInput;
-  private final AltingChannelInputInt seekSecondsInput;
+  protected final AltingChannelInputInt seekSecondsInput;
+  protected final AltingChannelInput<Tag> tagInput;
+  protected final AltingChannelInputInt stopRecordInput;
+  protected final AltingChannelInputInt resumeRecordInput;
+  protected final SketchDAWCallsChannel sketchDAWCallsChannel;
+  protected final AltingChannelInputInt shutdownInput;
 
-  private final AudioRecord mAr;
-
+  protected AudioRecord mAr;
   protected SketchProject mProject;
 
-  public SketchDAWProcess(AltingChannelInputInt shutdownInput, AltingChannelInputInt seekSecondsInput) throws Exception {
-    this.shutdownInput = shutdownInput;
+  protected boolean mPlaying = false;
+  protected boolean mRecording = false;
+  protected final ArrayList<AudioTrack> mTracks = new ArrayList<AudioTrack>();
+  protected final HashMap<AudioTrack, Integer> mPositions = new HashMap<AudioTrack, Integer>();
+
+  /**
+   * Channels:
+   * seek
+   * tag
+   * stopRecord
+   * resumeRecord
+   * SketchDAWCallsChannel
+   *   getPos
+   *   export
+   *   import
+   * shutdown
+   *
+   * @param seekSecondsInput
+   * @param tagInput
+   * @param stopRecordInput
+   * @param resumeRecordInput
+   * @param sketchDAWCallsChannel
+   * @param shutdownInput
+   * @throws Exception
+   */
+  public SketchDAWProcess(
+          AltingChannelInputInt seekSecondsInput,
+          AltingChannelInput<Tag> tagInput,
+          AltingChannelInputInt stopRecordInput,
+          AltingChannelInputInt resumeRecordInput,
+          SketchDAWCallsChannel sketchDAWCallsChannel,
+          AltingChannelInputInt shutdownInput
+         ) throws Exception {
     this.seekSecondsInput = seekSecondsInput;
-    mAr = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2);
-    if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
-      throw new Exception("Failed to initialize AudioRecord!");
+    this.tagInput = tagInput;
+    this.stopRecordInput = stopRecordInput;
+    this.resumeRecordInput = resumeRecordInput;
+    this.sketchDAWCallsChannel = sketchDAWCallsChannel;
+    this.shutdownInput = shutdownInput;
+  }
+
+  /**
+   * Reset everything to a clean slate.
+   */
+  protected void cleanup() {
+    if (mAr != null) {
+      try {
+        mAr.stop();
+        mAr.release();
+      } catch (Exception e) {
+        Log.d(TAG, "Error cleaning up AudioRecord", e);
+      }
+      mAr = null;
     }
+    mProject = null;
+    mPlaying = false;
+    mRecording = false;
+    for (AudioTrack track : mTracks) {
+      try {
+        track.pause();
+        track.flush();
+        track.release();
+      } catch (Exception e) {
+        Log.d(TAG, "Error cleaning up AudioTrack", e);
+      }
+    }
+    mTracks.clear();
+    mPositions.clear();
+  }
+
+  /**
+   * Initializes everything for a new run.
+   */
+  protected void init() {
     //TODO Configurize, optionate, bebutton
     mProject = new SketchProject();
     mProject.mic = new RawAudioData();
     mProject.playbacks = new ArrayList<IntervalReference>();
+
+    mAr = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2);
+    if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
+      throw new RuntimeException("Failed to initialize AudioRecord!");
+    }
   }
 
   @Override
   public void run() {
+    init();
+    //TODO Maybe don't START with autorecord?  Optionize?
     mAr.startRecording();
+    mRecording = true;
+  }
+
+  public void run2() {
+    mAr.startRecording();
+    mRecording = true;
     ArrayList<AudioTrack> tracks = new ArrayList<AudioTrack>();
     HashMap<AudioTrack, Integer> positions = new HashMap<AudioTrack, Integer>();
     short[] tempChunk = new short[CHUNK_SIZE];
@@ -59,15 +147,10 @@ public class SketchDAWProcess implements CSProcess {
       }
       Log.d(TAG, "Read: " + readCount);
       mProject.mic.add(new AudioChunk(tempChunk.clone()));
-      //TODO seekInput
       if (seekSecondsInput.pending()) {
         int seekSeconds = seekSecondsInput.read();
         if (seekSeconds == Integer.MAX_VALUE) {
-          // Stop playback
-          for (AudioTrack track : tracks) {
-            track.stop();
-          }
-          tracks.clear();
+          stopPlayback(tracks, positions);
         } else {
           // Seek
           //TODO Calc layers, not just the one
@@ -95,10 +178,16 @@ public class SketchDAWProcess implements CSProcess {
         positions.put(track, positions.get(track) + 1);
       }
     }
-    mAr.stop();
+    cleanup();
+  }
+
+  protected void stopPlayback(ArrayList<AudioTrack> tracks, HashMap<AudioTrack, Integer> positions) {
+    // Stop playback
     for (AudioTrack track : tracks) {
       track.stop();
     }
-    //TODO tracks.clear();?
+    tracks.clear();
+    positions.clear();
+    mPlaying = false;
   }
 }

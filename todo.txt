@@ -17,3 +17,4 @@ Options
   Autosave
 Add "add tag"
   Auto speech recognition?  (option?)
+Show errors to user
