@@ -8,9 +8,13 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
 
+import org.jcsp.lang.AltingChannelInput;
+import org.jcsp.lang.AltingChannelInputInt;
+import org.jcsp.lang.Any2OneChannel;
 import org.jcsp.lang.Any2OneChannelInt;
 import org.jcsp.lang.Channel;
 import org.jcsp.lang.ProcessManager;
+import org.jcsp.lang.SharedChannelOutput;
 import org.jcsp.lang.SharedChannelOutputInt;
 import org.jcsp.util.ints.InfiniteBufferInt;
 
@@ -29,15 +33,26 @@ public class MainActivity extends AppCompatActivity {
   @BindView(R.id.btnShutdown) Button btnShutdown;
 
   protected static final SharedChannelOutputInt seekSecondsOut;
+  protected static final SharedChannelOutput<Tag> tagOut;
+  protected static final SharedChannelOutputInt stopRecordOut;
+  protected static final SharedChannelOutputInt resumeRecordOut;
+  protected static final SketchDAWCallsChannel sketchDAWCallsChannel;
   protected static final SharedChannelOutputInt shutdownOut;
   protected static final SketchDAWProcess sketchDAWProcess;
   static {
-    Any2OneChannelInt seekSecondsChannel = Channel.any2oneInt(new InfiniteBufferInt());
+    Any2OneChannelInt seekSecondsChannel = Channel.any2oneInt();
     seekSecondsOut = seekSecondsChannel.out();
-    Any2OneChannelInt shutdownChannel = Channel.any2oneInt(new InfiniteBufferInt());
+    Any2OneChannel<Tag> tagChannel = Channel.<Tag>any2one();
+    tagOut = tagChannel.out();
+    Any2OneChannelInt stopRecordChannel = Channel.any2oneInt();
+    stopRecordOut = stopRecordChannel.out();
+    Any2OneChannelInt resumeRecordChannel = Channel.any2oneInt();
+    resumeRecordOut = resumeRecordChannel.out();
+    sketchDAWCallsChannel = new SketchDAWCallsChannel();
+    Any2OneChannelInt shutdownChannel = Channel.any2oneInt();
     shutdownOut = shutdownChannel.out();
     try {
-      sketchDAWProcess = new SketchDAWProcess(shutdownChannel.in(), seekSecondsChannel.in());
+      sketchDAWProcess = new SketchDAWProcess(seekSecondsChannel.in(), tagChannel.in(), stopRecordChannel.in(), resumeRecordChannel.in(), sketchDAWCallsChannel, shutdownChannel.in());
       new ProcessManager(sketchDAWProcess).start();
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -80,7 +95,6 @@ public class MainActivity extends AppCompatActivity {
       btnForwardAll.setOnClickListener(new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-          //TODO Fix
           seekSecondsOut.write(Integer.MAX_VALUE);
         }
       });
