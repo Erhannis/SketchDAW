@@ -5,8 +5,10 @@ package com.erhannis.android.sketchdaw;
  *
  * //TODO Allow compression?
  * Created by erhannis on 2/13/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
-
 public class AudioChunk {
   public final short[] data;
 

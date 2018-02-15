@@ -5,8 +5,10 @@ import org.jcsp.lang.Any2OneChannel;
 
 /**
  * Created by erhannis on 2/15/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
-
 public class SketchDAWCallsChannel extends Any2OneCallChannel implements SketchDAWCalls {
   @Override
   public int getPos() {

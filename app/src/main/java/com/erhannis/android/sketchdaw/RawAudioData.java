@@ -9,8 +9,10 @@ import java.util.ArrayList;
  * You can tack chunks onto the end, and request a chunk from the middle.
  *
  * Created by erhannis on 2/13/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
-
 public class RawAudioData implements AudioData {
   protected ArrayList<AudioChunk> chunks = new ArrayList<>();
 

@@ -2,8 +2,10 @@ package com.erhannis.android.sketchdaw;
 
 /**
  * Created by erhannis on 2/15/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
-
 public interface SketchDAWCalls {
   public static final int GET_POS = 0;
   public static final int EXPORT_PROJECT = 1;

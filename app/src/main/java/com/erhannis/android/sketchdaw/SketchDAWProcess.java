@@ -22,8 +22,10 @@ import java.util.HashMap;
  * and emitting sound, etc.
  *
  * Created by erhannis on 2/12/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
-
 public class SketchDAWProcess implements CSProcess {
   protected static final String TAG = "SketchDAWProcess";
   protected static final int SAMPLE_RATE = 44100;

@@ -8,8 +8,10 @@ package com.erhannis.android.sketchdaw;
  * It is recommended, but not required, that all chunks be of equal length.
  *
  * Created by erhannis on 2/13/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
-
 public interface AudioData {
   public void add(AudioChunk chunk);
   public AudioChunk get(int pos);

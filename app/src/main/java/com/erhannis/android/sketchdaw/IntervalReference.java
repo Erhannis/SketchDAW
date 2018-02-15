@@ -4,6 +4,9 @@ package com.erhannis.android.sketchdaw;
  * Represents a playback reference - a section of audio taken from one spot and played at another.
  *
  * Created by erhannis on 2/13/18.
+ *
+ * Licensed under Apache License 2.0
+ *
  */
 public class IntervalReference {
   //TODO Could include reference to source and/or dest audio....

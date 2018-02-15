@@ -17,6 +17,9 @@ import org.jcsp.util.ints.InfiniteBufferInt;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 
+/**
+ * Licensed under Apache License 2.0
+ */
 public class MainActivity extends AppCompatActivity {
   //@BindView(R.id.btnStart) Button btnStart;
   //@BindView(R.id.btnPlay) Button btnPlay;
