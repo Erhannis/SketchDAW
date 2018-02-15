@@ -302,9 +302,6 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
       return;
     }
     LinkedList<Integer> newPositions = mProject.getRecursivePlaybackPositions(mPositions.get(mTracks.get(0)));
-    if (newPositions.size() == 0) {
-      System.out.println("debugging");
-    }
     mSafeChunksLeft = newPositions.removeLast();
     newPositions.addFirst(mPositions.get(mTracks.get(0)));
     //TODO Maybe just return a HashSet, to begin with?
@@ -318,6 +315,7 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
         // This track is not pointing somewhere we need to play; get rid of it.
         track.pause();
         track.release();
+        iTrack.remove();
         mPositions.remove(track);
       }
     }
