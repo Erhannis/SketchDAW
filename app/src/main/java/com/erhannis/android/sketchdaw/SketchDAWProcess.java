@@ -188,12 +188,15 @@ public class SketchDAWProcess implements CSProcess {
             stopPlayback();
           } else {
             // Seek
+            int seekChunks = (seekSeconds * SAMPLE_RATE) / CHUNK_SIZE;
             if (0 <= seekSeconds) {
               // Skipping forward
               if (mPlaying) { // Can't start playing from the future
                 AudioTrack track = mTracks.get(0);
-                int seekChunks = (seekSeconds * SAMPLE_RATE) / CHUNK_SIZE;
                 int newPos = mPositions.get(track) + seekChunks;
+                if (newPos < 0) {
+                  newPos = 0;
+                }
                 if (newPos >= mProject.mic.size()) {
                   // We've hit the leading edge of recording
                   stopPlayback();
@@ -218,8 +221,10 @@ long timeStart = System.currentTimeMillis();
 Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - timeStart) + " ms");
               }
               AudioTrack track = mTracks.get(0);
-              int seekChunks = (seekSeconds * SAMPLE_RATE) / CHUNK_SIZE;
               int newPos = mPositions.get(track) + seekChunks;
+              if (newPos < 0) {
+                newPos = 0;
+              }
               mPositions.put(track, newPos);
               track.flush(); //TODO Doesn't work?
             }

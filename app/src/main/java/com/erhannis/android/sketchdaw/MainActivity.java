@@ -112,6 +112,7 @@ public class MainActivity extends AppCompatActivity {
   protected void checkPermissions() {
     if(checkCallingOrSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED){
       ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 1);
+      //TODO Retry on return?
     }
   }
 }
