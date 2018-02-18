@@ -42,12 +42,12 @@ public class SketchDAWProcess implements CSProcess {
   protected final AltingChannelInputInt shutdownInput;
 
   protected AudioRecord mAr;
+  protected AudioTrack mTrack;
   protected SketchProject mProject;
 
   protected boolean mPlaying = false;
   protected boolean mRecording = false;
-  protected final ArrayList<AudioTrack> mTracks = new ArrayList<AudioTrack>();
-  protected final HashMap<AudioTrack, Integer> mPositions = new HashMap<AudioTrack, Integer>();
+  protected final ArrayList<Integer> mPositions = new ArrayList<>();
   protected int mSafeChunksLeft = Integer.MAX_VALUE;
 
   /**
@@ -103,15 +103,12 @@ public class SketchDAWProcess implements CSProcess {
     mProject = null;
     mPlaying = false;
     mRecording = false;
-    for (AudioTrack track : mTracks) {
-      try {
-        track.pause();
-        track.release();
-      } catch (Exception e) {
-        Log.d(TAG, "Error cleaning up AudioTrack", e);
-      }
+    try {
+      mTrack.pause();
+      mTrack.release();
+    } catch (Exception e) {
+      Log.d(TAG, "Error cleaning up AudioTrack", e);
     }
-    mTracks.clear();
     mPositions.clear();
   }
 
@@ -127,6 +124,10 @@ public class SketchDAWProcess implements CSProcess {
     mAr = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2);
     if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
       throw new RuntimeException("Failed to initialize AudioRecord!");
+    }
+    mTrack = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2, AudioTrack.MODE_STREAM);
+    if (mTrack.getState() != AudioTrack.STATE_INITIALIZED) {
+      throw new RuntimeException("Failed to initialize AudioData!");
     }
   }
 
@@ -193,13 +194,17 @@ public class SketchDAWProcess implements CSProcess {
             stopPlayback();
           } else {
             // Seek
-            clearAllButMainTrack();
+            if (mPositions.size() > 0) {
+              // Clear out all but the main position
+              int curPos = mPositions.get(0);
+              mPositions.clear();
+              mPositions.add(curPos);
+            }
             int seekChunks = (seekSeconds * SAMPLE_RATE) / CHUNK_SIZE;
             if (0 <= seekSeconds) {
               // Skipping forward
               if (mPlaying) { // Can't start playing from the future
-                AudioTrack track = mTracks.get(0);
-                int newPos = mPositions.get(track) + seekChunks;
+                int newPos = mPositions.get(0) + seekChunks;
                 if (newPos < 0) {
                   newPos = 0;
                 }
@@ -207,35 +212,27 @@ public class SketchDAWProcess implements CSProcess {
                   // We've hit the leading edge of recording
                   stopPlayback();
                 } else {
-                  mPositions.put(track, newPos);
-                  track.pause();
-                  track.flush(); //TODO Doesn't work?
-                  track.play();
+                  mPositions.set(0, newPos);
+                  mTrack.pause();
+                  mTrack.flush();
+                  mTrack.play();
                 }
               }
             } else {
               // Skipping backward
               if (!mPlaying) {
                 // Extract into startPlayback?
-long timeStart = System.currentTimeMillis();
-                AudioTrack track = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2, AudioTrack.MODE_STREAM);
-                if (track.getState() != AudioTrack.STATE_INITIALIZED) {
-                  throw new RuntimeException("Failed to initialize AudioData!");
-                }
-                mTracks.add(track);
-                mPositions.put(track, mProject.mic.size()); //TODO Between reading and writing?
-Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - timeStart) + " ms");
+                mPositions.add(mProject.mic.size()); //TODO Between reading and writing?
                 mPlaying = true; // Well, technically not true for another few lines, maybe
               }
-              AudioTrack track = mTracks.get(0);
-              int newPos = mPositions.get(track) + seekChunks;
+              int newPos = mPositions.get(0) + seekChunks;
               if (newPos < 0) {
                 newPos = 0;
               }
-              mPositions.put(track, newPos);
-              track.pause();
-              track.flush(); //TODO Doesn't work?
-              track.play();
+              mPositions.set(0, newPos);
+              mTrack.pause();
+              mTrack.flush();
+              mTrack.play();
             }
             // If we've ended up playing somewhere new, now, make a new ReferenceInterval for it
             if (mPlaying) {
@@ -243,7 +240,7 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
               //TODO Wait wat
               if (mRecording) {
                 //TODO I swear that -1 should not be there
-                IntervalReference ref = new IntervalReference(mPositions.get(mTracks.get(0)), mProject.mic.size(), IntervalReference.INFINITY); //TODO Off-by-one errors!!!
+                IntervalReference ref = new IntervalReference(mPositions.get(0), mProject.mic.size(), IntervalReference.INFINITY); //TODO Off-by-one errors!!!
                 mProject.playbacks.add(ref);
               }
               updateRecursivePlayback();
@@ -257,19 +254,29 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
             updateRecursivePlayback();
           }
           boolean hitEnd = false;
-          for (AudioTrack track : mTracks) {
-            if (mPositions.get(track) >= mProject.mic.size()) {
+          AudioChunk sumChunk = new AudioChunk(CHUNK_SIZE);
+          for (int i = 0; i < mPositions.size(); i++) {
+            int pos = mPositions.get(i);
+            if (pos >= mProject.mic.size()) {
               Log.e(TAG, "Playback hit the end of the recording; that shouldn't currently happen!");
               hitEnd = true;
               break;
             }
-            int writeCount = track.write(mProject.mic.get(mPositions.get(track)).data, 0, CHUNK_SIZE);
-            if (writeCount != CHUNK_SIZE) {
-              throw new RuntimeException("writeCount is wrong and I don't know what it means!!! " + writeCount);
+            AudioChunk chunk = mProject.mic.get(pos);
+            long start = System.currentTimeMillis();
+            for (int j = 0; j < CHUNK_SIZE; j++) {
+              //TODO Check clipping?
+              sumChunk.data[j] += chunk.data[j];
             }
-            Log.d(TAG, "Wrote: " + writeCount);
-            mPositions.put(track, mPositions.get(track) + 1);
+            long end = System.currentTimeMillis();
+            Log.d(TAG, "Time to sum: " + (end - start));
+            mPositions.set(i, pos + 1);
           }
+          int writeCount = mTrack.write(sumChunk.data, 0, CHUNK_SIZE);
+          if (writeCount != CHUNK_SIZE) {
+            throw new RuntimeException("writeCount is wrong and I don't know what it means!!! " + writeCount);
+          }
+          Log.d(TAG, "Wrote: " + writeCount);
           mSafeChunksLeft--;
           if (hitEnd) {
             //TODO Should THIS cap the IntervalReference?
@@ -289,11 +296,8 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
 
   //TODO Would this be clearer inlined?  Hmm
   protected void stopPlayback() {
-    for (AudioTrack track : mTracks) {
-      track.pause();
-      track.release();
-    }
-    mTracks.clear();
+    mTrack.pause();
+    mTrack.flush();
     mPositions.clear();
     mSafeChunksLeft = Integer.MAX_VALUE;
     mPlaying = false;
@@ -312,58 +316,21 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
     }
   }
 
-  protected void clearAllButMainTrack() {
-    if (mPlaying) {
-      Iterator<AudioTrack> iTrack = mTracks.iterator();
-      iTrack.next(); // Skip first track
-      while (iTrack.hasNext()) {
-        AudioTrack track = iTrack.next();
-        track.pause();
-        track.release();
-        iTrack.remove();
-        mPositions.remove(track);
-      }
-    }
-  }
-
   /**
    * Takes the position of the first AudioTrack and determines where the others should be.
    * Also calculates and sets the chunks left before this should be called again, according to
    * the current project structure.
    */
   protected void updateRecursivePlayback() {
-    if (mTracks.size() < 1) {
+    if (!mPlaying) {
       mSafeChunksLeft = Integer.MAX_VALUE;
       return;
     }
-    LinkedList<Integer> newPositions = mProject.getRecursivePlaybackPositions(mPositions.get(mTracks.get(0)));
+    //TODO This seems slightly roundabout
+    LinkedList<Integer> newPositions = mProject.getRecursivePlaybackPositions(mPositions.get(0));
     mSafeChunksLeft = newPositions.removeLast();
-    newPositions.addFirst(mPositions.get(mTracks.get(0)));
-    //TODO Maybe just return a HashSet, to begin with?
-    HashSet<Integer> remainingPositionSet = new HashSet<>(newPositions);
-    Iterator<AudioTrack> iTrack = mTracks.iterator();
-    // Ignore tracks already playing where we need them to
-    //TODO Is that a good idea?  Will that work?
-    while (iTrack.hasNext()) {
-      AudioTrack track = iTrack.next();
-      Integer pos = mPositions.get(track);
-      if (!remainingPositionSet.remove(pos)) {
-        // This track is not pointing somewhere we need to play; get rid of it.
-        track.stop(); //TODO This finishes playing; should it?  And what about new stuff playing too soon?  And does this not free resources?
-        iTrack.remove();
-        mPositions.remove(track);
-      }
-    }
-    // Now make tracks for the places we need to play
-    for (Integer pos : remainingPositionSet) {
-      //TODO Keep a cache of initialized AudioTracks?
-      AudioTrack track = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2, AudioTrack.MODE_STREAM);
-      if (track.getState() != AudioTrack.STATE_INITIALIZED) {
-        throw new RuntimeException("Failed to initialize AudioData!");
-      }
-      mTracks.add(track);
-      mPositions.put(track, pos);
-      track.play();
-    }
+    newPositions.addFirst(mPositions.get(0));
+    mPositions.clear();
+    mPositions.addAll(newPositions);
   }
 }
