@@ -90,6 +90,7 @@ public class SketchDAWProcess implements CSProcess {
    * Reset everything to a clean slate.
    */
   protected void cleanup() {
+    Log.d(TAG, "Cleaning up");
     if (mAr != null) {
       try {
         mAr.stop();
@@ -144,6 +145,7 @@ public class SketchDAWProcess implements CSProcess {
    */
   @Override
   public void run() {
+    Log.d(TAG, "Starting up");
     Alternative recordAlt = new Alternative(new Guard[]{stopRecordInput, resumeRecordInput});
     try {
       init();
@@ -270,6 +272,7 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
     } finally {
       cleanup();
     }
+    Log.d(TAG, "Shutdown");
   }
 
   //TODO Would this be clearer inlined?  Hmm

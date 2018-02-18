@@ -7,6 +7,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.Button;
+import android.widget.Toast;
 
 import org.jcsp.lang.AltingChannelInput;
 import org.jcsp.lang.AltingChannelInputInt;
@@ -65,7 +66,10 @@ public class MainActivity extends AppCompatActivity {
     setContentView(R.layout.activity_main);
     ButterKnife.bind(this);
 
-    checkPermissions();
+    if (!checkPermissions()) {
+      //TODO Continue the app once permissions granted
+      this.finish();
+    }
 
     try {
 //      btnStart.setOnClickListener(new View.OnClickListener() {
@@ -109,10 +113,12 @@ public class MainActivity extends AppCompatActivity {
     }
   }
 
-  protected void checkPermissions() {
+  protected boolean checkPermissions() {
     if(checkCallingOrSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED){
       ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO}, 1);
       //TODO Retry on return?
+      return false;
     }
+    return true;
   }
 }
