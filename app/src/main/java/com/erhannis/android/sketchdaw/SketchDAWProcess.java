@@ -179,17 +179,21 @@ public class SketchDAWProcess implements CSProcess {
 
         // Ch: seek
         //TODO Fix
+        //Ok, so when we seek, everything should come to a halt, be cleared, and resumed afresh.
+        //Vs., when the end of stuffs happen, the changes should just be piled on to queued data
+        seek:
         if (seekSecondsInput.pending()) {
           int seekSeconds = seekSecondsInput.read();
-          //TODO Break/create IntervalReference
           //TODO Examine this closer once "mRecording" is more of a thing
           if (mRecording) {
+            //TODO Tweak for things already/not yet played?; buffering?
             capIntervalReference();
           }
           if (seekSeconds == Integer.MAX_VALUE) {
             stopPlayback();
           } else {
             // Seek
+            clearAllButMainTrack();
             int seekChunks = (seekSeconds * SAMPLE_RATE) / CHUNK_SIZE;
             if (0 <= seekSeconds) {
               // Skipping forward
@@ -204,7 +208,9 @@ public class SketchDAWProcess implements CSProcess {
                   stopPlayback();
                 } else {
                   mPositions.put(track, newPos);
+                  track.pause();
                   track.flush(); //TODO Doesn't work?
+                  track.play();
                 }
               }
             } else {
@@ -218,9 +224,8 @@ long timeStart = System.currentTimeMillis();
                 }
                 mTracks.add(track);
                 mPositions.put(track, mProject.mic.size()); //TODO Between reading and writing?
-                track.play();
-                mPlaying = true;
 Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - timeStart) + " ms");
+                mPlaying = true; // Well, technically not true for another few lines, maybe
               }
               AudioTrack track = mTracks.get(0);
               int newPos = mPositions.get(track) + seekChunks;
@@ -228,13 +233,19 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
                 newPos = 0;
               }
               mPositions.put(track, newPos);
+              track.pause();
               track.flush(); //TODO Doesn't work?
+              track.play();
             }
             // If we've ended up playing somewhere new, now, make a new ReferenceInterval for it
             if (mPlaying) {
               //TODO Does it matter that we're between reading (+1) and writing (=0)?
-              IntervalReference ref = new IntervalReference(mPositions.get(mTracks.get(0)), mProject.mic.size() - 1, IntervalReference.INFINITY); //TODO Off-by-one errors!!!
-              mProject.playbacks.add(ref);
+              //TODO Wait wat
+              if (mRecording) {
+                //TODO I swear that -1 should not be there
+                IntervalReference ref = new IntervalReference(mPositions.get(mTracks.get(0)), mProject.mic.size(), IntervalReference.INFINITY); //TODO Off-by-one errors!!!
+                mProject.playbacks.add(ref);
+              }
               updateRecursivePlayback();
             }
           }
@@ -248,6 +259,7 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
           boolean hitEnd = false;
           for (AudioTrack track : mTracks) {
             if (mPositions.get(track) >= mProject.mic.size()) {
+              Log.e(TAG, "Playback hit the end of the recording; that shouldn't currently happen!");
               hitEnd = true;
               break;
             }
@@ -290,11 +302,26 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
   }
 
   protected void capIntervalReference() {
+    //TODO Would it be better to keep a reference to the active IntervalReference?
     if (mProject.playbacks.size() > 0) {
       IntervalReference ref = mProject.playbacks.get(mProject.playbacks.size() - 1);
       if (ref.duration == IntervalReference.INFINITY) {
         // This is the active IntervalReference
         ref.duration = mProject.mic.size() - ref.destStart;
+      }
+    }
+  }
+
+  protected void clearAllButMainTrack() {
+    if (mPlaying) {
+      Iterator<AudioTrack> iTrack = mTracks.iterator();
+      iTrack.next(); // Skip first track
+      while (iTrack.hasNext()) {
+        AudioTrack track = iTrack.next();
+        track.pause();
+        track.release();
+        iTrack.remove();
+        mPositions.remove(track);
       }
     }
   }
@@ -316,13 +343,13 @@ Log.d(TAG, "AudioTrack initialization took " + (System.currentTimeMillis() - tim
     HashSet<Integer> remainingPositionSet = new HashSet<>(newPositions);
     Iterator<AudioTrack> iTrack = mTracks.iterator();
     // Ignore tracks already playing where we need them to
+    //TODO Is that a good idea?  Will that work?
     while (iTrack.hasNext()) {
       AudioTrack track = iTrack.next();
       Integer pos = mPositions.get(track);
       if (!remainingPositionSet.remove(pos)) {
         // This track is not pointing somewhere we need to play; get rid of it.
-        track.pause();
-        track.release();
+        track.stop(); //TODO This finishes playing; should it?  And what about new stuff playing too soon?  And does this not free resources?
         iTrack.remove();
         mPositions.remove(track);
       }

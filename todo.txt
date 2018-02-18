@@ -18,3 +18,4 @@ Options
 Add "add tag"
   Auto speech recognition?  (option?)
 Show errors to user
+Maybe just use one AudioTrack, to avoid this hassle?
