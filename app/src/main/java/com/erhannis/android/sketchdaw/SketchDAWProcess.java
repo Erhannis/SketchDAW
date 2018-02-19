@@ -358,6 +358,15 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
 
   @Override
   public void importProject(SketchProject project) {
-    throw new RuntimeException("Not yet implemented!");
+    //TODO Fix
+    Log.e(TAG, "IMPORT PROJECT IS CURRENTLY A HACK");
+    mProject = project;
+    mPlaying = false;
+    mRecording = true;
+    mPositions.clear();
+    mTrack.pause();
+    mTrack.flush();
+    capIntervalReference();
+    mSafeChunksLeft = Integer.MAX_VALUE;
   }
 }

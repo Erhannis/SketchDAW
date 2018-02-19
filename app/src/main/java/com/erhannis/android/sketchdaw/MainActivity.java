@@ -27,9 +27,12 @@ import org.jcsp.lang.SharedChannelOutputInt;
 import org.jcsp.util.ints.InfiniteBufferInt;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 
@@ -165,15 +168,15 @@ public class MainActivity extends AppCompatActivity {
               f.getParentFile().mkdirs();
               ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(f));
               oos.writeUTF(BuildConfig.GIT_HASH);
-              oos.write(FILE_VERSION);
-              oos.write(micSize);
-              oos.write(playbacksSize);
-              oos.write(tagsSize);
-              oos.write(SketchDAWProcess.SAMPLE_RATE);
+              oos.writeInt(FILE_VERSION);
+              oos.writeInt(micSize);
+              oos.writeInt(playbacksSize);
+              oos.writeInt(tagsSize);
+              oos.writeInt(SketchDAWProcess.SAMPLE_RATE);
               if (micSize > 0) {
-                oos.write(project.mic.get(0).data.length);
+                oos.writeInt(project.mic.get(0).data.length);
               } else {
-                oos.write(SketchDAWProcess.CHUNK_SIZE);
+                oos.writeInt(SketchDAWProcess.CHUNK_SIZE);
               }
               for (int i = 0; i < micSize; i++) {
                 AudioChunk chunk = project.mic.get(i);
@@ -183,18 +186,18 @@ public class MainActivity extends AppCompatActivity {
               }
               for (int i = 0; i < playbacksSize - 1; i++) {
                 IntervalReference ref = project.playbacks.get(i);
-                oos.write(ref.sourceStart);
-                oos.write(ref.destStart);
-                oos.write(ref.duration);
+                oos.writeInt(ref.sourceStart);
+                oos.writeInt(ref.destStart);
+                oos.writeInt(ref.duration);
               }
               if (lastRef != null) {
-                oos.write(lastRef.sourceStart);
-                oos.write(lastRef.destStart);
-                oos.write(lastRef.duration);
+                oos.writeInt(lastRef.sourceStart);
+                oos.writeInt(lastRef.destStart);
+                oos.writeInt(lastRef.duration);
               }
               for (int i = 0; i < tagsSize; i++) {
                 Tag tag = project.tags.get(i);
-                oos.write(tag.pos);
+                oos.writeInt(tag.pos);
                 oos.writeUTF(tag.text);
               }
               oos.flush();
@@ -202,6 +205,70 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
               showToast("Error saving project! " + e.getMessage());
               Log.e(TAG, "Error saving project!", e);
+            }
+          }
+        });
+        return true;
+      }
+    });
+    //TODO Open file browser
+    //TODO Filter file open events
+    menu.add("Load project...").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+      @Override
+      public boolean onMenuItemClick(MenuItem menuItem) {
+        getTextInput("Load filename (.sdp)", "/sdcard/SketchDAWProjects/", new Consumer<String>() {
+          @Override
+          public void accept(String filename) {
+            String hash = null;
+            Integer fileVersion = null;
+            try {
+              // Load
+              File f = new File(filename);
+              ObjectInputStream ois = new ObjectInputStream(new FileInputStream(f));
+              hash = ois.readUTF();
+              fileVersion = ois.readInt();
+              if (fileVersion != FILE_VERSION) {
+                throw new IllegalArgumentException("Unhandled file version (" + fileVersion + ") vs current " + FILE_VERSION);
+              }
+              int micSize = ois.readInt();
+              int playbacksSize = ois.readInt();
+              int tagsSize = ois.readInt();
+              int sampleRate = ois.readInt(); //TODO What do?
+              if (sampleRate != SketchDAWProcess.SAMPLE_RATE) {
+                throw new IllegalArgumentException("Unhandled sample rate (" + sampleRate + ") vs current " + SketchDAWProcess.SAMPLE_RATE);
+              }
+              int chunkSize = ois.readInt();
+              SketchProject project = new SketchProject();
+              project.mic = new RawAudioData(); //TODO Could compress
+              project.playbacks = new ArrayList<IntervalReference>();
+              project.tags = new ArrayList<Tag>();
+              for (int i = 0; i < micSize; i++) {
+                AudioChunk chunk = new AudioChunk(chunkSize);
+                for (int j = 0; j < chunkSize; j++) {
+                  chunk.data[j] = ois.readShort();
+                }
+                project.mic.add(chunk);
+              }
+              for (int i = 0; i < playbacksSize; i++) {
+                int sourceStart = ois.readInt();
+                int destStart = ois.readInt();
+                int duration = ois.readInt();
+                IntervalReference ref = new IntervalReference(sourceStart, destStart, duration);
+                project.playbacks.add(ref);
+              }
+              for (int i = 0; i < tagsSize; i++) {
+                int pos = ois.readInt();
+                String text = ois.readUTF();
+                Tag tag = new Tag(pos, text);
+                project.tags.add(tag);
+              }
+              ois.close();
+              sketchDAWCallsChannel.importProject(project);
+            } catch (Exception e) {
+              showToast("Error loading project! " + e.getMessage());
+              showToast("Saved under version: " + hash);
+              showToast("File version: " + fileVersion);
+              Log.e(TAG, "Error loading project!", e);
             }
           }
         });
