@@ -154,8 +154,11 @@ public class MainActivity extends AppCompatActivity {
               SketchProject project = sketchDAWCallsChannel.exportProject();
               int playbacksSize = project.playbacks.size();
               // This is the one at risk of being changed; I want to get it out of the way, though it's arguable I ought to preserve the other indices, first.
-              IntervalReference lastRef = project.playbacks.get(playbacksSize - 1);
-              lastRef = lastRef.clone();
+              IntervalReference lastRef = null;
+              if (playbacksSize > 0) {
+                lastRef = project.playbacks.get(playbacksSize - 1);
+                lastRef = lastRef.clone();
+              }
               int micSize = project.mic.size();
               int tagsSize = project.tags.size();
               File f = new File(filename);
@@ -184,9 +187,11 @@ public class MainActivity extends AppCompatActivity {
                 oos.write(ref.destStart);
                 oos.write(ref.duration);
               }
-              oos.write(lastRef.sourceStart);
-              oos.write(lastRef.destStart);
-              oos.write(lastRef.duration);
+              if (lastRef != null) {
+                oos.write(lastRef.sourceStart);
+                oos.write(lastRef.destStart);
+                oos.write(lastRef.duration);
+              }
               for (int i = 0; i < tagsSize; i++) {
                 Tag tag = project.tags.get(i);
                 oos.write(tag.pos);
