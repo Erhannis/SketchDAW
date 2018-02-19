@@ -121,6 +121,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     mProject = new SketchProject();
     mProject.mic = new RawAudioData();
     mProject.playbacks = new ArrayList<IntervalReference>();
+    mProject.tags = new ArrayList<Tag>();
 
     mAr = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2);
     if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
