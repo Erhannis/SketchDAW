@@ -34,4 +34,9 @@ public class IntervalReference {
     this.destStart = destStart;
     this.duration = duration;
   }
+
+  @Override
+  protected IntervalReference clone() {
+    return new IntervalReference(sourceStart, destStart, duration);
+  }
 }

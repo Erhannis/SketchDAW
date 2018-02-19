@@ -13,6 +13,7 @@ import org.jcsp.lang.AltingChannelInputInt;
 import org.jcsp.lang.CSProcess;
 import org.jcsp.lang.Guard;
 import org.jcsp.lang.One2OneCallChannel;
+import org.jcsp.lang.Skip;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +30,7 @@ import java.util.LinkedList;
  * Licensed under Apache License 2.0
  *
  */
-public class SketchDAWProcess implements CSProcess {
+public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
   protected static final String TAG = "SketchDAWProcess";
   protected static final int SAMPLE_RATE = 44100;
   protected static final int CHUNK_SIZE = 4410;
@@ -148,6 +149,7 @@ public class SketchDAWProcess implements CSProcess {
   public void run() {
     Log.d(TAG, "Starting up");
     Alternative recordAlt = new Alternative(new Guard[]{stopRecordInput, resumeRecordInput});
+    Alternative callsAlt = new Alternative(new Guard[]{sketchDAWCallsChannel, new Skip()});
     try {
       init();
       //TODO Maybe don't START with autorecord?  Optionize?
@@ -286,7 +288,16 @@ public class SketchDAWProcess implements CSProcess {
 
         //TODO stopRecord, resumeRecord
         //TODO When resumeRecord, restore playback position
+
         //TODO SketchDAWCallsChannel
+        switch (callsAlt.priSelect()) {
+          case 0: // Call
+            int select = sketchDAWCallsChannel.accept(this);
+            //TODO Do we do anything???
+            break;
+          default: // Skip
+            break;
+        }
       }
     } finally {
       cleanup();
@@ -332,5 +343,20 @@ public class SketchDAWProcess implements CSProcess {
     newPositions.addFirst(mPositions.get(0));
     mPositions.clear();
     mPositions.addAll(newPositions);
+  }
+
+  @Override
+  public int getPos() {
+    return mProject.mic.size();
+  }
+
+  @Override
+  public SketchProject exportProject() {
+    return mProject;
+  }
+
+  @Override
+  public void importProject(SketchProject project) {
+    throw new RuntimeException("Not yet implemented!");
   }
 }
