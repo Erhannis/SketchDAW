@@ -1,4 +1,6 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.data;
+
+import com.erhannis.android.sketchdaw.data.AudioData;
 
 import org.jcsp.lang.Crew;
 

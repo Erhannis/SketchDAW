@@ -16,15 +16,21 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import org.jcsp.lang.AltingChannelInput;
-import org.jcsp.lang.AltingChannelInputInt;
+import com.erhannis.android.sketchdaw.data.AudioChunk;
+import com.erhannis.android.sketchdaw.data.IntervalReference;
+import com.erhannis.android.sketchdaw.data.RawAudioData;
+import com.erhannis.android.sketchdaw.data.SketchProject;
+import com.erhannis.android.sketchdaw.data.Tag;
+import com.erhannis.android.sketchdaw.jcsp.SketchDAWCallsChannel;
+import com.erhannis.android.sketchdaw.jcsp.SketchDAWProcess;
+import com.erhannis.android.sketchdaw.misc.Consumer;
+
 import org.jcsp.lang.Any2OneChannel;
 import org.jcsp.lang.Any2OneChannelInt;
 import org.jcsp.lang.Channel;
 import org.jcsp.lang.ProcessManager;
 import org.jcsp.lang.SharedChannelOutput;
 import org.jcsp.lang.SharedChannelOutputInt;
-import org.jcsp.util.ints.InfiniteBufferInt;
 
 import java.io.File;
 import java.io.FileInputStream;

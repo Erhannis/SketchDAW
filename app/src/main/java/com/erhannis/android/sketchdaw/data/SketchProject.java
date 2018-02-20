@@ -1,9 +1,6 @@
-package com.erhannis.android.sketchdaw;
-
-import android.media.AudioTrack;
+package com.erhannis.android.sketchdaw.data;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 
 /**

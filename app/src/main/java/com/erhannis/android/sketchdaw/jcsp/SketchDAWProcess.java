@@ -1,4 +1,4 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.jcsp;
 
 import android.media.AudioFormat;
 import android.media.AudioManager;
@@ -7,18 +7,20 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.util.Log;
 
+import com.erhannis.android.sketchdaw.data.AudioChunk;
+import com.erhannis.android.sketchdaw.data.IntervalReference;
+import com.erhannis.android.sketchdaw.data.RawAudioData;
+import com.erhannis.android.sketchdaw.data.SketchProject;
+import com.erhannis.android.sketchdaw.data.Tag;
+
 import org.jcsp.lang.Alternative;
 import org.jcsp.lang.AltingChannelInput;
 import org.jcsp.lang.AltingChannelInputInt;
 import org.jcsp.lang.CSProcess;
 import org.jcsp.lang.Guard;
-import org.jcsp.lang.One2OneCallChannel;
 import org.jcsp.lang.Skip;
 
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.LinkedList;
 
 /**
@@ -31,9 +33,9 @@ import java.util.LinkedList;
  *
  */
 public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
-  protected static final String TAG = "SketchDAWProcess";
-  protected static final int SAMPLE_RATE = 44100;
-  protected static final int CHUNK_SIZE = 4410;
+  private static final String TAG = "SketchDAWProcess";
+  public static final int SAMPLE_RATE = 44100;
+  public static final int CHUNK_SIZE = 4410;
 
   protected final AltingChannelInputInt seekSecondsInput;
   protected final AltingChannelInput<Tag> tagInput;

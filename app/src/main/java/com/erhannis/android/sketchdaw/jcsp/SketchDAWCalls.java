@@ -1,4 +1,6 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.jcsp;
+
+import com.erhannis.android.sketchdaw.data.SketchProject;
 
 /**
  * Created by erhannis on 2/15/18.

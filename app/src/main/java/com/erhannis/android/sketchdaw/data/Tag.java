@@ -1,4 +1,4 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.data;
 
 /**
  * Created by erhannis on 2/15/18.

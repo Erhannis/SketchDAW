@@ -1,4 +1,4 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.data;
 
 /**
  * Represents a playback reference - a section of audio taken from one spot and played at another.
@@ -36,7 +36,7 @@ public class IntervalReference {
   }
 
   @Override
-  protected IntervalReference clone() {
+  public IntervalReference clone() {
     return new IntervalReference(sourceStart, destStart, duration);
   }
 }

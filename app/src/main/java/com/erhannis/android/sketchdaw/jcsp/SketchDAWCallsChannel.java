@@ -1,7 +1,8 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.jcsp;
+
+import com.erhannis.android.sketchdaw.data.SketchProject;
 
 import org.jcsp.lang.Any2OneCallChannel;
-import org.jcsp.lang.Any2OneChannel;
 
 /**
  * Created by erhannis on 2/15/18.

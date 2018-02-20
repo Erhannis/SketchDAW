@@ -1,4 +1,4 @@
-package com.erhannis.android.sketchdaw;
+package com.erhannis.android.sketchdaw.data;
 
 /**
  * Represents audio data, stored as chunks of samples.
