@@ -21,6 +21,7 @@ import com.erhannis.android.sketchdaw.data.IntervalReference;
 import com.erhannis.android.sketchdaw.data.RawAudioData;
 import com.erhannis.android.sketchdaw.data.SketchProject;
 import com.erhannis.android.sketchdaw.data.Tag;
+import com.erhannis.android.sketchdaw.jcsp.EncodeFlac;
 import com.erhannis.android.sketchdaw.jcsp.SketchDAWCallsChannel;
 import com.erhannis.android.sketchdaw.jcsp.SketchDAWProcess;
 import com.erhannis.android.sketchdaw.misc.Consumer;
@@ -34,7 +35,9 @@ import org.jcsp.lang.SharedChannelOutputInt;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.text.SimpleDateFormat;
@@ -42,8 +45,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 
-import butterknife.BindView;
-import butterknife.ButterKnife;
+import static com.erhannis.android.sketchdaw.Settings.FILENAME_DATE_FORMATTER;
 
 /**
  * Licensed under Apache License 2.0
@@ -52,15 +54,14 @@ public class MainActivity extends AppCompatActivity {
   private static final String TAG = "MainActivity";
 
   protected static final int FILE_VERSION = 1;
-  protected static final SimpleDateFormat FILENAME_DATE_FORMATTER = new SimpleDateFormat("yyyy_MM_dd-HH_mm_ss", Locale.US);
 
 
   //@BindView(R.id.btnStart) Button btnStart;
   //@BindView(R.id.btnPlay) Button btnPlay;
-  @BindView(R.id.btnBack30s) Button btnBack30s;
-  @BindView(R.id.btnBack5s) Button btnBack5s;
-  @BindView(R.id.btnForwardAll) Button btnForwardAll;
-  @BindView(R.id.btnShutdown) Button btnShutdown;
+  protected Button btnBack30s;
+  protected Button btnBack5s;
+  protected Button btnForwardAll;
+  protected Button btnShutdown;
 
   protected static final SharedChannelOutputInt seekSecondsOut;
   protected static final SharedChannelOutput<Tag> tagOut;
@@ -93,7 +94,11 @@ public class MainActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
-    ButterKnife.bind(this);
+
+    btnBack30s = findViewById(R.id.btnBack30s);
+    btnBack5s = findViewById(R.id.btnBack5s);
+    btnForwardAll = findViewById(R.id.btnForwardAll);
+    btnShutdown = findViewById(R.id.btnShutdown);
 
     if (!checkPermissions()) {
       //TODO Continue the app once permissions granted
@@ -244,10 +249,9 @@ public class MainActivity extends AppCompatActivity {
                 throw new IllegalArgumentException("Unhandled sample rate (" + sampleRate + ") vs current " + SketchDAWProcess.SAMPLE_RATE);
               }
               int chunkSize = ois.readInt();
-              SketchProject project = new SketchProject();
-              project.mic = new RawAudioData(); //TODO Could compress
-              project.playbacks = new ArrayList<IntervalReference>();
-              project.tags = new ArrayList<Tag>();
+              //TODO Optionize not to disk cache, and/or move to cache folder
+              //TODO There's a disk duplication of data implicit here
+              SketchProject project = new SketchProject(new File(Settings.getDefaultCacheLocation(), FILENAME_DATE_FORMATTER.format(new Date()) + ".sdc"));
               for (int i = 0; i < micSize; i++) {
                 AudioChunk chunk = new AudioChunk(chunkSize);
                 for (int j = 0; j < chunkSize; j++) {
@@ -276,6 +280,38 @@ public class MainActivity extends AppCompatActivity {
               showToast("File version: " + fileVersion);
               Log.e(TAG, "Error loading project!", e);
             }
+          }
+        });
+        return true;
+      }
+    });
+    menu.add("Export to FLAC...").setOnMenuItemClickListener(new MenuItem.OnMenuItemClickListener() {
+      @Override
+      public boolean onMenuItemClick(MenuItem menuItem) {
+        //TODO Extract last save filename base
+        getTextInput("Export (.flac)", "/sdcard/SketchDAWProjects/" + FILENAME_DATE_FORMATTER.format(new Date()) + ".flac", new Consumer<String>() {
+          @Override
+          public void accept(final String filename) {
+            showToast("Warning: FLAC export appears broken");
+            SketchProject project = sketchDAWCallsChannel.exportProject();
+            //TODO This is kindof memory-wasteful
+            EncodeFlac.encode(project.mic, 0, project.mic.size(), new Consumer<byte[]>() {
+              @Override
+              public void accept(byte[] value) {
+                File f = new File(filename);
+                f.getParentFile().mkdirs();
+                try {
+                  FileOutputStream fos = new FileOutputStream(f);
+                  fos.write(value);
+                  fos.flush();
+                  fos.close();
+                  showToast("Finished exporting");
+                } catch (IOException e) {
+                  e.printStackTrace();
+                  showToast("Error exporting");
+                }
+              }
+            });
           }
         });
         return true;

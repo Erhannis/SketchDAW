@@ -7,6 +7,7 @@ import android.media.AudioTrack;
 import android.media.MediaRecorder;
 import android.util.Log;
 
+import com.erhannis.android.sketchdaw.Settings;
 import com.erhannis.android.sketchdaw.data.AudioChunk;
 import com.erhannis.android.sketchdaw.data.IntervalReference;
 import com.erhannis.android.sketchdaw.data.RawAudioData;
@@ -20,8 +21,13 @@ import org.jcsp.lang.CSProcess;
 import org.jcsp.lang.Guard;
 import org.jcsp.lang.Skip;
 
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedList;
+
+import static com.erhannis.android.sketchdaw.Settings.FILENAME_DATE_FORMATTER;
 
 /**
  * The core of SketchDAW functionality.  Tracks one project at a time, recording audio and playback,
@@ -118,13 +124,10 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
   /**
    * Initializes everything for a new run.
    */
-  protected void init() {
+  protected void init() throws FileNotFoundException {
     //TODO Configurize, optionate, bebutton
-    mProject = new SketchProject();
-    mProject.mic = new RawAudioData();
-    mProject.playbacks = new ArrayList<IntervalReference>();
-    mProject.tags = new ArrayList<Tag>();
-
+    //TODO Optionize not to disk cache, and/or move to cache folder
+    mProject = new SketchProject(new File(Settings.getDefaultCacheLocation(), FILENAME_DATE_FORMATTER.format(new Date()) + ".sdc"));
     mAr = new AudioRecord(MediaRecorder.AudioSource.MIC, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2);
     if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
       throw new RuntimeException("Failed to initialize AudioRecord!");
@@ -302,6 +305,8 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
             break;
         }
       }
+    } catch (FileNotFoundException e) {
+      throw new RuntimeException(e);
     } finally {
       cleanup();
     }

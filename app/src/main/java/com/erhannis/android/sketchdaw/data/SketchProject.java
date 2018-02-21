@@ -1,5 +1,10 @@
 package com.erhannis.android.sketchdaw.data;
 
+import com.erhannis.android.sketchdaw.jcsp.SketchDAWProcess;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.LinkedList;
 
@@ -17,6 +22,25 @@ public class SketchProject {
    */
   public ArrayList<IntervalReference> playbacks;
   public ArrayList<Tag> tags;
+
+  public SketchProject() {
+    mic = new RawAudioData(); //TODO Could compress
+    playbacks = new ArrayList<IntervalReference>();
+    tags = new ArrayList<Tag>();
+  }
+
+  /**
+   * Creates the project, creating a new file in which to store audio data.
+   * Overwrites the file if it already exists.
+   * @param cacheFile
+   */
+  public SketchProject(File cacheFile) throws FileNotFoundException {
+    //TODO Could still compress
+    cacheFile.getParentFile().mkdirs();
+    mic = new FileBackedAudioData(new AudioDataFile(new RandomAccessFile(cacheFile, "rw"))); //TODO rwd?
+    playbacks = new ArrayList<IntervalReference>();
+    tags = new ArrayList<Tag>();
+  }
 
   /**
    * Get the IntervalReference to next become active soonest after the specified dest chunkPos.
