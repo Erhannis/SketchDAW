@@ -55,7 +55,7 @@ public class FileBackedAudioData implements AudioData {
     this.pendingChunks = new ConcurrentHashMap<Integer, AudioChunk>();
     this.chunks = CacheBuilder.newBuilder()
             .maximumSize(10000)
-            .expireAfterWrite(2, TimeUnit.MINUTES)
+            .expireAfterWrite(30, TimeUnit.SECONDS)
             .build(
                     new CacheLoader<Integer, AudioChunk>() {
                       public AudioChunk load(Integer pos) throws IOException {
@@ -94,7 +94,7 @@ public class FileBackedAudioData implements AudioData {
       public void run() {
         try {
           int c = pendingChunks.size();
-          if (c > 1000) {
+          if (c > 10) {
             Log.e(TAG, "File backing is falling behind! Unsaved chunks: " + c);
           }
           file.putChunk(pos, chunk);

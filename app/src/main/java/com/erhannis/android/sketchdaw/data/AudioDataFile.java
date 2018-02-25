@@ -25,27 +25,36 @@ public class AudioDataFile {
   protected final RandomAccessFile file;
   protected final int chunkSize;
   protected final AtomicInteger chunkCount;
+  protected final byte[] bucket;
 
   public AudioDataFile(RandomAccessFile file) throws IOException {
     //TODO Is it possible to read from multiple places at once?
     this.file = file;
     this.chunkSize = SketchDAWProcess.CHUNK_SIZE; //TODO Allow change?
     this.chunkCount = new AtomicInteger((int) (file.length() / (chunkSize * 2)));
+    this.bucket = new byte[2 * chunkSize];
   }
 
   public synchronized void putChunk(int pos, AudioChunk chunk) throws IOException {
     file.seek(pos * chunkSize * 2);
+    int i = 0;
     for (short s : chunk.data) {
-      file.writeShort(s);
+      bucket[i++] = (byte)((s >> 8) & 0xFF);
+      bucket[i++] = (byte)(s & 0xFF);
     }
+    file.write(bucket);
   }
 
   public synchronized AudioChunk getChunk(int pos) throws IOException {
     Log.d(TAG, "getChunk from file @ " + pos);
     file.seek(pos * chunkSize * 2);
     AudioChunk chunk = new AudioChunk(chunkSize);
+    int read = file.read(bucket);
+    if (read != bucket.length) {
+      throw new IOException("Read " + read + " bytes, expected " + bucket.length);
+    }
     for (int i = 0; i < chunkSize; i++) {
-      chunk.data[i] = file.readShort();
+      chunk.data[i] = (short)(((bucket[i*2] & 0xFF) << 8) | (bucket[(i*2)+1] & 0xFF));
     }
     return chunk;
   }
