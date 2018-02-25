@@ -55,7 +55,7 @@ public class FileBackedAudioData implements AudioData {
     this.pendingChunks = new ConcurrentHashMap<Integer, AudioChunk>();
     this.chunks = CacheBuilder.newBuilder()
             .maximumSize(10000)
-            .expireAfterWrite(30, TimeUnit.SECONDS)
+            .expireAfterWrite(5, TimeUnit.MINUTES)
             .build(
                     new CacheLoader<Integer, AudioChunk>() {
                       public AudioChunk load(Integer pos) throws IOException {
