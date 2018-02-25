@@ -16,4 +16,5 @@ public interface AudioData {
   public void add(AudioChunk chunk);
   public AudioChunk get(int pos);
   public int size();
+  public void cache(int pos);
 }

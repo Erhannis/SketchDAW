@@ -54,12 +54,7 @@ public class RawAudioData implements AudioData {
   }
 
   @Override
-  public void clear() {
-    try {
-      lock.startWrite();
-      chunks.clear();
-    } finally {
-      lock.endWrite();
-    }
+  public void cache(int pos) {
+    // NOP
   }
 }

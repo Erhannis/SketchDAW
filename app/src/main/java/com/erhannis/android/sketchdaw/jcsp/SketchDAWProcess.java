@@ -18,6 +18,7 @@ import org.jcsp.lang.Alternative;
 import org.jcsp.lang.AltingChannelInput;
 import org.jcsp.lang.AltingChannelInputInt;
 import org.jcsp.lang.CSProcess;
+import org.jcsp.lang.CSTimer;
 import org.jcsp.lang.Guard;
 import org.jcsp.lang.Skip;
 
@@ -157,6 +158,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
   @Override
   public void run() {
     Log.d(TAG, "Starting up");
+    CSTimer timer = new CSTimer();
     Alternative recordAlt = new Alternative(new Guard[]{stopRecordInput, resumeRecordInput});
     Alternative callsAlt = new Alternative(new Guard[]{sketchDAWCallsChannel, new Skip()});
     try {
@@ -289,6 +291,13 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
           }
           Log.d(TAG, "Wrote: " + writeCount);
           mSafeChunksLeft--;
+          long ts = timer.read();
+          for (Integer pos : upcomingPositions(mPositions.get(0), 2)) {
+            if (pos < mProject.mic.size()) {
+              mProject.mic.cache(pos);
+            }
+          }
+          Log.d(TAG, "Time to cache request: " + (timer.read() - ts));
           if (hitEnd) {
             //TODO Should THIS cap the IntervalReference?
             stopPlayback();
@@ -356,6 +365,24 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     newPositions.addFirst(mPositions.get(0));
     mPositions.clear();
     mPositions.addAll(newPositions);
+  }
+
+  /**
+   * Returns all positions involved in playing the chunks in
+   * start <= i < start+lookahead
+   * @param start
+   * @param lookahead
+   * @return
+   */
+  protected HashSet<Integer> upcomingPositions(int start, int lookahead) {
+    HashSet<Integer> upcoming = new HashSet<>();
+    for (int i = 0; i < lookahead; i++) {
+      LinkedList<Integer> newPositions = mProject.getRecursivePlaybackPositions(start + i);
+      newPositions.removeLast();
+      upcoming.addAll(newPositions);
+      upcoming.add(start + i);
+    }
+    return upcoming;
   }
 
   @Override
