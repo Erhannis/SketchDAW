@@ -60,6 +60,7 @@ public class MainActivity extends AppCompatActivity {
   //@BindView(R.id.btnPlay) Button btnPlay;
   protected Button btnBack30s;
   protected Button btnBack5s;
+  protected Button btnForward5s;
   protected Button btnForwardAll;
   protected Button btnShutdown;
 
@@ -97,6 +98,7 @@ public class MainActivity extends AppCompatActivity {
 
     btnBack30s = findViewById(R.id.btnBack30s);
     btnBack5s = findViewById(R.id.btnBack5s);
+    btnForward5s = findViewById(R.id.btnForward5s);
     btnForwardAll = findViewById(R.id.btnForwardAll);
     btnShutdown = findViewById(R.id.btnShutdown);
 
@@ -128,6 +130,12 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onClick(View view) {
           seekSecondsOut.write(-5);
+        }
+      });
+      btnForward5s.setOnClickListener(new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+          seekSecondsOut.write(5);
         }
       });
       btnForwardAll.setOnClickListener(new View.OnClickListener() {
