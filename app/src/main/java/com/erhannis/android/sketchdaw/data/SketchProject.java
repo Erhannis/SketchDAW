@@ -4,6 +4,7 @@ import com.erhannis.android.sketchdaw.jcsp.SketchDAWProcess;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -34,7 +35,7 @@ public class SketchProject {
    * Overwrites the file if it already exists.
    * @param cacheFile
    */
-  public SketchProject(File cacheFile) throws FileNotFoundException {
+  public SketchProject(File cacheFile) throws IOException {
     //TODO Could still compress
     cacheFile.getParentFile().mkdirs();
     mic = new FileBackedAudioData(new AudioDataFile(new RandomAccessFile(cacheFile, "rw"))); //TODO rwd?

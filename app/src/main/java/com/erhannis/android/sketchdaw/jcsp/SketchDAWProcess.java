@@ -23,9 +23,12 @@ import org.jcsp.lang.Skip;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 
 import static com.erhannis.android.sketchdaw.Settings.FILENAME_DATE_FORMATTER;
 
@@ -124,7 +127,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
   /**
    * Initializes everything for a new run.
    */
-  protected void init() throws FileNotFoundException {
+  protected void init() throws IOException {
     //TODO Configurize, optionate, bebutton
     //TODO Optionize not to disk cache, and/or move to cache folder
     mProject = new SketchProject(new File(Settings.getDefaultCacheLocation(), FILENAME_DATE_FORMATTER.format(new Date()) + ".sdc"));
@@ -306,6 +309,8 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
         }
       }
     } catch (FileNotFoundException e) {
+      throw new RuntimeException(e);
+    } catch (IOException e) {
       throw new RuntimeException(e);
     } finally {
       cleanup();

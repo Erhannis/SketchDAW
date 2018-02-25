@@ -6,6 +6,7 @@ import com.erhannis.android.sketchdaw.jcsp.SketchDAWProcess;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * I'm undecided whether this should just hold audio data or project data.
@@ -23,10 +24,13 @@ public class AudioDataFile {
   private static final String TAG = "AudioDataFile";
   protected final RandomAccessFile file;
   protected final int chunkSize;
+  protected final AtomicInteger chunkCount;
 
-  public AudioDataFile(RandomAccessFile file) {
+  public AudioDataFile(RandomAccessFile file) throws IOException {
+    //TODO Is it possible to read from multiple places at once?
     this.file = file;
     this.chunkSize = SketchDAWProcess.CHUNK_SIZE; //TODO Allow change?
+    this.chunkCount = new AtomicInteger((int) (file.length() / (chunkSize * 2)));
   }
 
   public synchronized void putChunk(int pos, AudioChunk chunk) throws IOException {
@@ -34,10 +38,6 @@ public class AudioDataFile {
     for (short s : chunk.data) {
       file.writeShort(s);
     }
-  }
-
-  public synchronized void clearChunks() throws IOException {
-    file.setLength(0);
   }
 
   public synchronized AudioChunk getChunk(int pos) throws IOException {
@@ -50,7 +50,7 @@ public class AudioDataFile {
     return chunk;
   }
 
-  public synchronized int getChunkCount() throws IOException {
-    return (int) (file.length() / (chunkSize * 2));
+  public synchronized int getChunkCount() {
+    return chunkCount.get();
   }
 }
