@@ -181,22 +181,31 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
           mProject.tags.add(tag);
         }
 
+        long postRecord = -1;
         // Read audio
         if (mRecording) {
+          logClock(timer.read(), "everything else: ");
           int readCount = mAr.read(tempChunk, 0, CHUNK_SIZE);
+          postRecord = timer.read();
+          logClock(timer.read(), "recording: ");
           if (readCount != CHUNK_SIZE) {
             throw new RuntimeException("readCount is wrong and I don't know what it means!!! " + readCount);
           }
           Log.d(TAG, "Read: " + readCount);
           mProject.mic.add(new AudioChunk(tempChunk.clone()));
+        } else {
+          //TODO I'm not sure this is necessary
+          postRecord = timer.read();
         }
 
         // Ch: seek
         //TODO Fix
         //Ok, so when we seek, everything should come to a halt, be cleared, and resumed afresh.
         //Vs., when the end of stuffs happen, the changes should just be piled on to queued data
+        boolean seeked = false; // So the playback section knows whether to add partial and advance
         seek:
         if (seekSecondsInput.pending()) {
+          seeked = true;
           int seekSeconds = seekSecondsInput.read();
           //TODO Examine this closer once "mRecording" is more of a thing
           if (mRecording) {
@@ -228,7 +237,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
                   mPositions.set(0, newPos);
                   mTrack.pause();
                   mTrack.flush();
-                  mTrack.play();
+                  //mTrack.play();
                 }
               }
             } else {
@@ -245,7 +254,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
               mPositions.set(0, newPos);
               mTrack.pause();
               mTrack.flush();
-              mTrack.play();
+              //mTrack.play();
             }
             // If we've ended up playing somewhere new, now, make a new ReferenceInterval for it
             if (mPlaying) {
@@ -263,44 +272,52 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
 
         // Play audio
         if (mPlaying) {
-          if (mSafeChunksLeft <= 0) {
-            updateRecursivePlayback();
-          }
-          boolean hitEnd = false;
-          AudioChunk sumChunk = new AudioChunk(CHUNK_SIZE);
-          for (int i = 0; i < mPositions.size(); i++) {
-            int pos = mPositions.get(i);
-            if (pos >= mProject.mic.size()) {
-              Log.e(TAG, "Playback hit the end of the recording; that shouldn't currently happen!");
-              hitEnd = true;
-              break;
+          final int lookahead = 3;
+          for (int s = (seeked ? 1 : lookahead); s <= lookahead; s++) { // Do an extra time if seeked
+            if (mSafeChunksLeft <= 0) {
+              updateRecursivePlayback();
             }
-            AudioChunk chunk = mProject.mic.get(pos);
-            long start = System.currentTimeMillis();
-            for (int j = 0; j < CHUNK_SIZE; j++) {
-              //TODO Check clipping?
-              sumChunk.data[j] += chunk.data[j];
+            boolean hitEnd = false;
+            AudioChunk sumChunk = new AudioChunk(CHUNK_SIZE);
+            for (int i = 0; i < mPositions.size(); i++) {
+              int pos = mPositions.get(i);
+              if (pos >= mProject.mic.size()) {
+                Log.e(TAG, "Playback hit the end of the recording; that shouldn't currently happen!");
+                hitEnd = true;
+                break;
+              }
+              AudioChunk chunk = mProject.mic.get(pos);
+              long start = System.currentTimeMillis();
+              for (int j = 0; j < CHUNK_SIZE; j++) {
+                //TODO Check clipping?
+                sumChunk.data[j] += chunk.data[j];
+              }
+              long end = System.currentTimeMillis();
+              Log.d(TAG, "Time to sum: " + (end - start));
+              mPositions.set(i, pos + 1);
             }
-            long end = System.currentTimeMillis();
-            Log.d(TAG, "Time to sum: " + (end - start));
-            mPositions.set(i, pos + 1);
-          }
-          int writeCount = mTrack.write(sumChunk.data, 0, CHUNK_SIZE);
-          if (writeCount != CHUNK_SIZE) {
-            throw new RuntimeException("writeCount is wrong and I don't know what it means!!! " + writeCount);
-          }
-          Log.d(TAG, "Wrote: " + writeCount);
-          mSafeChunksLeft--;
-          long ts = timer.read();
-          for (Integer pos : upcomingPositions(mPositions.get(0), 2)) {
-            if (pos < mProject.mic.size()) {
-              mProject.mic.cache(pos);
+            int offset = (s == 0 ? (int)((timer.read() - postRecord) * SAMPLE_RATE / 1000.0) : 0);
+            int writeCount = mTrack.write(sumChunk.data, offset, CHUNK_SIZE - offset);
+            if (writeCount != (CHUNK_SIZE - offset)) {
+              throw new RuntimeException("writeCount is wrong and I don't know what it means!!! " + writeCount + " should be " + (CHUNK_SIZE - offset));
             }
-          }
-          Log.d(TAG, "Time to cache request: " + (timer.read() - ts));
-          if (hitEnd) {
-            //TODO Should THIS cap the IntervalReference?
-            stopPlayback();
+            Log.d(TAG, "Wrote: " + writeCount);
+            if (mTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING && s == lookahead) {
+              //TODO Not convinced this won't incur delay
+              mTrack.play();
+            }
+            mSafeChunksLeft--;
+            long ts = timer.read();
+            for (Integer pos : upcomingPositions(mPositions.get(0), 2)) {
+              if (pos < mProject.mic.size()) {
+                mProject.mic.cache(pos);
+              }
+            }
+            Log.d(TAG, "Time to cache request: " + (timer.read() - ts));
+            if (hitEnd) {
+              //TODO Should THIS cap the IntervalReference?
+              stopPlayback();
+            }
           }
         }
 
@@ -407,5 +424,11 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     mTrack.flush();
     capIntervalReference();
     mSafeChunksLeft = Integer.MAX_VALUE;
+  }
+
+  protected long lastTime;
+  protected void logClock(long time, String text) {
+    Log.d(TAG, text + (time - lastTime) + "ms");
+    lastTime = time;
   }
 }
