@@ -63,6 +63,10 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
   protected final ArrayList<Integer> mPositions = new ArrayList<>();
   protected int mSafeChunksLeft = Integer.MAX_VALUE;
 
+  protected short[] mOverflow;
+  protected int mOverflowStart = 0;
+  protected int mOverflowLength = 0;
+
   /**
    * Channels:
    * seek
@@ -122,6 +126,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     } catch (Exception e) {
       Log.d(TAG, "Error cleaning up AudioTrack", e);
     }
+    clearOverflow();
     mPositions.clear();
   }
 
@@ -136,10 +141,13 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     if (mAr.getState() != AudioRecord.STATE_INITIALIZED) {
       throw new RuntimeException("Failed to initialize AudioRecord!");
     }
-    mTrack = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, SAMPLE_RATE*2, AudioTrack.MODE_STREAM);
+    mTrack = new AudioTrack( AudioManager.STREAM_MUSIC, SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, ((SAMPLE_RATE*2) / 10) * 2, AudioTrack.MODE_STREAM);
     if (mTrack.getState() != AudioTrack.STATE_INITIALIZED) {
       throw new RuntimeException("Failed to initialize AudioData!");
     }
+    mOverflow = new short[SAMPLE_RATE * 2];
+    mOverflowStart = 0;
+    mOverflowLength = 0;
   }
 
   /**
@@ -238,6 +246,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
                   mTrack.pause();
                   mTrack.flush();
                   //mTrack.play();
+                  clearOverflow();
                 }
               }
             } else {
@@ -255,6 +264,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
               mTrack.pause();
               mTrack.flush();
               //mTrack.play();
+              clearOverflow();
             }
             // If we've ended up playing somewhere new, now, make a new ReferenceInterval for it
             if (mPlaying) {
@@ -272,7 +282,9 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
 
         // Play audio
         if (mPlaying) {
-          final int lookahead = 3;
+          final int lookahead = 4;
+          boolean hitBufferCap = false;
+          emptyOverflow();
           for (int s = (seeked ? 1 : lookahead); s <= lookahead; s++) { // Do an extra time if seeked
             if (mSafeChunksLeft <= 0) {
               updateRecursivePlayback();
@@ -296,14 +308,14 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
               Log.d(TAG, "Time to sum: " + (end - start));
               mPositions.set(i, pos + 1);
             }
-            int offset = (s == 0 ? (int)((timer.read() - postRecord) * SAMPLE_RATE / 1000.0) : 0);
-            int writeCount = mTrack.write(sumChunk.data, offset, CHUNK_SIZE - offset);
-            if (writeCount != (CHUNK_SIZE - offset)) {
-              throw new RuntimeException("writeCount is wrong and I don't know what it means!!! " + writeCount + " should be " + (CHUNK_SIZE - offset));
+            int offset = (s == 1 ? (int)((timer.read() - postRecord) * SAMPLE_RATE / 1000.0) : 0);
+            if (!fillOverflow(sumChunk.data, offset, CHUNK_SIZE - offset)) {
+              throw new RuntimeException("Failed to buffer all the samples!");
             }
-            Log.d(TAG, "Wrote: " + writeCount);
-            if (mTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING && s == lookahead) {
+            boolean trackFull = emptyOverflow();
+            if (mTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING && (trackFull || s == lookahead)) {
               //TODO Not convinced this won't incur delay
+              Log.d(TAG, "Playing; " + trackFull + ", " + s + ", " + (s == lookahead));
               mTrack.play();
             }
             mSafeChunksLeft--;
@@ -344,10 +356,112 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     Log.d(TAG, "Shutdown");
   }
 
+  /**
+   * Attempts to empty the overflow into mTrack.  Returns true if it emptied all available data, otherwise false.
+   * @return
+   */
+  protected boolean emptyOverflow() {
+    int toEnd = mOverflow.length - mOverflowStart;
+    if (mOverflowLength > toEnd) {
+      // Write toEnd
+      int writeCount = mTrack.write(mOverflow, mOverflowStart, toEnd);
+      if (writeCount < 0) {
+        throw new RuntimeException("Failed to write audio, with error: " + writeCount);
+      }
+      Log.d(TAG, "Wrote: " + writeCount);
+      if (writeCount != toEnd) {
+        mOverflowStart += writeCount;
+        mOverflowLength -= writeCount;
+        return false;
+      }
+      mOverflowStart = 0;
+      mOverflowLength -= writeCount;
+
+      // Start from beginning
+      writeCount = mTrack.write(mOverflow, mOverflowStart, mOverflowLength);
+      if (writeCount < 0) {
+        throw new RuntimeException("Failed to write audio, with error: " + writeCount);
+      }
+      Log.d(TAG, "Wrote: " + writeCount);
+      if (writeCount != mOverflowLength) {
+        mOverflowStart += writeCount;
+        mOverflowLength -= writeCount;
+        return false;
+      }
+      mOverflowStart = mOverflowLength;
+      mOverflowLength = 0;
+      return true;
+    } else if (mOverflowLength < toEnd) {
+      int writeCount = mTrack.write(mOverflow, mOverflowStart, mOverflowLength);
+      if (writeCount < 0) {
+        throw new RuntimeException("Failed to write audio, with error: " + writeCount);
+      }
+      Log.d(TAG, "Wrote: " + writeCount);
+      if (writeCount != mOverflowLength) {
+        mOverflowStart += writeCount;
+        mOverflowLength -= writeCount;
+        return false;
+      }
+      mOverflowStart = mOverflowLength;
+      mOverflowLength = 0;
+      return true;
+    } else {
+      // They happen to be exactly equal
+      int writeCount = mTrack.write(mOverflow, mOverflowStart, mOverflowLength);
+      if (writeCount < 0) {
+        throw new RuntimeException("Failed to write audio, with error: " + writeCount);
+      }
+      Log.d(TAG, "Wrote: " + writeCount);
+      if (writeCount != mOverflowLength) {
+        mOverflowStart += writeCount;
+        mOverflowLength -= writeCount;
+        return false;
+      }
+      mOverflowStart = 0;
+      mOverflowLength = 0;
+      return true;
+    }
+  }
+
+  protected boolean fillOverflow(short[] data, int pos, int count) {
+    boolean truncated = false;
+    int remainingSpace = mOverflow.length - mOverflowLength;
+    if (remainingSpace < count) {
+      count = remainingSpace;
+      truncated = true;
+    }
+    int curPos = (mOverflowStart + mOverflowLength) % mOverflow.length;
+    int nextPos = curPos + count;
+    if (nextPos > mOverflow.length) {
+      // Gonna have to split it up
+      int firstLength = mOverflow.length - curPos;
+      System.arraycopy(data, pos, mOverflow, curPos, firstLength);
+      mOverflowLength += firstLength;
+
+      count -= firstLength;
+      curPos = 0;
+
+      System.arraycopy(data, pos, mOverflow, curPos, count);
+      mOverflowLength += count;
+    } else {
+      // Exactly equal doesn't get a special handling, here
+      System.arraycopy(data, pos, mOverflow, curPos, count);
+      mOverflowLength += count;
+    }
+
+    return !truncated;
+  }
+
+  protected void clearOverflow() {
+    mOverflowStart = 0;
+    mOverflowLength = 0;
+  }
+
   //TODO Would this be clearer inlined?  Hmm
   protected void stopPlayback() {
     mTrack.pause();
     mTrack.flush();
+    clearOverflow();
     mPositions.clear();
     mSafeChunksLeft = Integer.MAX_VALUE;
     mPlaying = false;
@@ -422,6 +536,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     mPositions.clear();
     mTrack.pause();
     mTrack.flush();
+    clearOverflow();
     capIntervalReference();
     mSafeChunksLeft = Integer.MAX_VALUE;
   }
