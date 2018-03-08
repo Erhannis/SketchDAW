@@ -27,6 +27,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -192,10 +193,10 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
         long postRecord = -1;
         // Read audio
         if (mRecording) {
-          logClock(timer.read(), "everything else: ");
+          logClock(0, timer.read(), "everything else: ");
           int readCount = mAr.read(tempChunk, 0, CHUNK_SIZE);
           postRecord = timer.read();
-          logClock(timer.read(), "recording: ");
+          logClock(0, timer.read(), "recording: ");
           if (readCount != CHUNK_SIZE) {
             throw new RuntimeException("readCount is wrong and I don't know what it means!!! " + readCount);
           }
@@ -284,11 +285,14 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
         if (mPlaying) {
           final int lookahead = 4;
           boolean hitBufferCap = false;
+          logClock(1, timer.read(), "not-playing: ");
           emptyOverflow();
+          logClock(1, timer.read(), "emptyOverflow: ");
           for (int s = (seeked ? 1 : lookahead); s <= lookahead; s++) { // Do an extra time if seeked
             if (mSafeChunksLeft <= 0) {
               updateRecursivePlayback();
             }
+            logClock(1, timer.read(), "updateRecursivePlayback: ");
             boolean hitEnd = false;
             AudioChunk sumChunk = new AudioChunk(CHUNK_SIZE);
             for (int i = 0; i < mPositions.size(); i++) {
@@ -308,24 +312,27 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
               Log.d(TAG, "Time to sum: " + (end - start));
               mPositions.set(i, pos + 1);
             }
+            logClock(1, timer.read(), "Time to sum all: ");
             int offset = (s == 1 ? (int)((timer.read() - postRecord) * SAMPLE_RATE / 1000.0) : 0);
             if (!fillOverflow(sumChunk.data, offset, CHUNK_SIZE - offset)) {
               throw new RuntimeException("Failed to buffer all the samples!");
             }
-            boolean trackFull = emptyOverflow();
+            logClock(1, timer.read(), "fillOverflow loop: ");
+            boolean trackFull = !emptyOverflow();
+            logClock(1, timer.read(), "emptyOverflow loop: ");
             if (mTrack.getPlayState() != AudioTrack.PLAYSTATE_PLAYING && (trackFull || s == lookahead)) {
               //TODO Not convinced this won't incur delay
               Log.d(TAG, "Playing; " + trackFull + ", " + s + ", " + (s == lookahead));
               mTrack.play();
             }
+            logClock(1, timer.read(), "getPlayState: ");
             mSafeChunksLeft--;
-            long ts = timer.read();
             for (Integer pos : upcomingPositions(mPositions.get(0), 2)) {
               if (pos < mProject.mic.size()) {
                 mProject.mic.cache(pos);
               }
             }
-            Log.d(TAG, "Time to cache request: " + (timer.read() - ts));
+            logClock(1, timer.read(), "time to request cache: ");
             if (hitEnd) {
               //TODO Should THIS cap the IntervalReference?
               stopPlayback();
@@ -361,10 +368,12 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
    * @return
    */
   protected boolean emptyOverflow() {
+    logClock(2, System.currentTimeMillis(), "emptyOverflow start: ");
     int toEnd = mOverflow.length - mOverflowStart;
     if (mOverflowLength > toEnd) {
       // Write toEnd
       int writeCount = mTrack.write(mOverflow, mOverflowStart, toEnd);
+      logClock(2, System.currentTimeMillis(), "emptyOverflow 1 writeCount " + writeCount + "/" + toEnd + ": ");
       if (writeCount < 0) {
         throw new RuntimeException("Failed to write audio, with error: " + writeCount);
       }
@@ -379,6 +388,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
 
       // Start from beginning
       writeCount = mTrack.write(mOverflow, mOverflowStart, mOverflowLength);
+      logClock(2, System.currentTimeMillis(), "emptyOverflow 2 writeCount " + writeCount + "/" + mOverflowLength + ": ");
       if (writeCount < 0) {
         throw new RuntimeException("Failed to write audio, with error: " + writeCount);
       }
@@ -393,6 +403,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
       return true;
     } else if (mOverflowLength < toEnd) {
       int writeCount = mTrack.write(mOverflow, mOverflowStart, mOverflowLength);
+      logClock(2, System.currentTimeMillis(), "emptyOverflow 3 writeCount " + writeCount + "/" + mOverflowLength + ": ");
       if (writeCount < 0) {
         throw new RuntimeException("Failed to write audio, with error: " + writeCount);
       }
@@ -408,6 +419,7 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     } else {
       // They happen to be exactly equal
       int writeCount = mTrack.write(mOverflow, mOverflowStart, mOverflowLength);
+      logClock(2, System.currentTimeMillis(), "emptyOverflow 4 writeCount " + writeCount + "/" + mOverflowLength + ": ");
       if (writeCount < 0) {
         throw new RuntimeException("Failed to write audio, with error: " + writeCount);
       }
@@ -541,9 +553,13 @@ public class SketchDAWProcess implements CSProcess, SketchDAWCalls {
     mSafeChunksLeft = Integer.MAX_VALUE;
   }
 
-  protected long lastTime;
-  protected void logClock(long time, String text) {
-    Log.d(TAG, text + (time - lastTime) + "ms");
-    lastTime = time;
+  protected HashMap<Integer, Long> lastTimes = new HashMap<Integer, Long>();
+  protected void logClock(int category, long time, String text) {
+    Long lastTime = lastTimes.get(category);
+    if (lastTime == null) {
+      lastTime = time;
+    }
+    Log.d(TAG, category + " " + text + (time - lastTime) + "ms");
+    lastTimes.put(category, time);
   }
 }
